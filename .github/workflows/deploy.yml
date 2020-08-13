@@ -1,0 +1,24 @@
+
+name: CD
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docker-compose.yaml"
+      - "dev.yaml"
+      - ".github/workflows/deploy.yml"
+  repository_dispatch:
+    types:
+      - deploy-dev
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.client_payload.github.repository }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Dispatcher ${{ github.event.client_payload.github.repository }}
+        if: github.event.client_payload
+        run: echo Dispatcher ${{ github.event.client_payload.github.repository }}
