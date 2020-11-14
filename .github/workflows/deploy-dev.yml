@@ -1,0 +1,54 @@
+
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docker-compose.yaml"
+      - "dev.yaml"
+      - ".github/workflows/deploy-dev.yml"
+  repository_dispatch:
+    types:
+      - deploy-dev
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.client_payload.github.repository }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: chrnorm/deployment-action@releases/v1
+        name: Create GitHub Deployment
+        id: deployment
+        with:
+          token: '${{ github.token }}'
+          environment: development
+      
+      - uses: sergeysova/deployment-status@releases/v1.1
+        name: Deployment progress
+        with:
+          token: '${{ github.token }}'
+          state: in_progress
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+
+
+      
+      - uses: sergeysova/deployment-status@releases/v1.1
+        name: Deployment success
+        if: success()
+        with:
+          token: '${{ github.token }}'
+          environment_url: https://cardbox.sova.dev
+          state: success
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+
+      - uses: sergeysova/deployment-status@releases/v1.1
+        name: Deployment failure
+        if: failure()
+        with:
+          token: '${{ github.token }}'
+          state: failure
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
