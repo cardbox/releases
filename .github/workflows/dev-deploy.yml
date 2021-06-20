@@ -9,12 +9,41 @@ on:
       - "docker-compose.yaml"
       - "dev.yaml"
       - ".github/workflows/deploy-dev.yml"
+      - "facade/*"
   repository_dispatch:
     types:
       - deploy-dev
   workflow_dispatch:
 
 jobs:
+  build-facade:
+    name: Build facade image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Detect facade changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          list-files: none
+          filters: |
+            facade:
+              - 'facade/**'
+      - name: Publish Docker Image
+        if: steps.changes.outpus.facade == 'true'
+        uses: sergeysova/docker-publish-action@v1
+        with:
+          image: cardbox/releases/facade
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          dockerfile: facade/Dockerfiled
+          tag_semver: skip
+          tag_separator: "@"
+          semver_higher: true
+
   deploy:
     name: Deploy ${{ github.event.client_payload.github.repository }}
     runs-on: ubuntu-latest
