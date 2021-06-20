@@ -8,7 +8,7 @@ on:
     paths:
       - "docker-compose.yaml"
       - "dev.yaml"
-      - ".github/workflows/deploy-dev.yml"
+      - ".github/workflows/dev-deploy.yml"
       - "facade/*"
   repository_dispatch:
     types:
@@ -31,6 +31,7 @@ jobs:
           filters: |
             facade:
               - 'facade/**'
+              - '.github/workflows/**'
       - name: Publish Docker Image
         if: steps.changes.outpus.facade == 'true'
         uses: sergeysova/docker-publish-action@v1
@@ -39,7 +40,7 @@ jobs:
           registry: docker.pkg.github.com
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: facade/Dockerfiled
+          dockerfile: facade/Dockerfile
           tag_semver: skip
           tag_separator: "@"
           semver_higher: true
