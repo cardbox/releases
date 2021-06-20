@@ -33,7 +33,7 @@ jobs:
               - 'facade/**'
               - '.github/workflows/**'
       - name: Publish Docker Image
-        if: steps.changes.outpus.facade == 'true'
+        if: steps.changes.outputs.facade == 'true'
         uses: sergeysova/docker-publish-action@v1
         with:
           image: cardbox/releases/facade
