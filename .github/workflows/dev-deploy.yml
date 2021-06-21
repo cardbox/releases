@@ -48,6 +48,7 @@ jobs:
   deploy:
     name: Deploy ${{ github.event.client_payload.github.repository }}
     runs-on: [self-hosted, dev]
+    needs: build-facade
     
     steps:
       - uses: chrnorm/deployment-action@releases/v1
