@@ -47,7 +47,7 @@ jobs:
 
   deploy:
     name: Deploy ${{ github.event.client_payload.github.repository }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, dev]
     
     steps:
       - uses: chrnorm/deployment-action@releases/v1
@@ -64,37 +64,24 @@ jobs:
           state: in_progress
           deployment_id: ${{ steps.deployment.outputs.deployment_id }}
 
-      - name: SSH
-        uses: appleboy/ssh-action@v0.0.7
-        env:
-          DB_NAME: ${{ secrets.DEV_DB }}
-          DB_USER: ${{ secrets.DEV_DB_USER }}
-          DB_PASS: ${{ secrets.DEV_DB_PASSWORD }}
-          RELEASE_SHA: ${{ github.sha }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCKER_USERNAME: ${{ github.actor }}
-        with:
-          host: ${{ secrets.DEV_HOSTNAME }}
-          username: ${{ secrets.DEV_USER }}
-          port: ${{ secrets.DEV_PORT }}
-          key: ${{ secrets.DEV_SSH_PRIVATE }}
-          passphrase: ${{ secrets.DEV_SSH_PASSPHRASE }}
-          envs: DB_NAME,DB_USER,DB_PASS,RELEASE_SHA,GITHUB_TOKEN,DOCKER_USERNAME
-          script_stop: true
-          script: |
-            cd cardbox-releases
-            git reset --hard HEAD
-            git clean -f
-            git fetch -p
-            git checkout $RELEASE_SHA
-            docker login docker.pkg.github.com --username $DOCKER_USERNAME -p $GITHUB_TOKEN
-            export POSTGRES_DB="$DB_NAME"
-            export POSTGRES_USER="$DB_USER"
-            export POSTGRES_PASSWORD="$DB_PASS"
-            docker-compose -f docker-compose.yaml -f dev.yaml pull
-            docker-compose -f docker-compose.yaml -f dev.yaml build
-            docker-compose -f docker-compose.yaml -f dev.yaml up -d --remove-orphans
-      
+      - name: Checkout release
+        run: |
+          cd ~/cardbox-releases
+          git reset --hard HEAD
+          git clean -f
+          git fetch -p
+          git checkout ${{ github.sha }}
+
+      - name: Docker Compose
+        run: |
+          docker login docker.pkg.github.com --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          export POSTGRES_DB="${{ secrets.DEV_DB }}"
+          export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
+          export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
+          docker-compose -f docker-compose.yaml -f dev.yaml pull
+          docker-compose -f docker-compose.yaml -f dev.yaml build
+          docker-compose -f docker-compose.yaml -f dev.yaml up -d --remove-orphans
+
       - uses: sergeysova/deployment-status@releases/v1.1
         name: Deployment success
         if: success()
