@@ -74,6 +74,7 @@ jobs:
 
       - name: Docker Compose
         run: |
+          cd ~/cardbox-releases
           docker login docker.pkg.github.com --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           export POSTGRES_DB="${{ secrets.DEV_DB }}"
           export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
