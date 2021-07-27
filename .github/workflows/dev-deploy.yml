@@ -9,47 +9,27 @@ on:
       - "docker-compose.yaml"
       - "dev.yaml"
       - ".github/workflows/dev-deploy.yml"
-      - "facade/*"
+      - "services/*"
   repository_dispatch:
     types:
       - deploy-dev
   workflow_dispatch:
 
 jobs:
-  build-facade:
-    name: Build facade image
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Detect facade changes
-        uses: dorny/paths-filter@v2
-        id: changes
-        with:
-          list-files: none
-          filters: |
-            facade:
-              - 'facade/**'
-              - '.github/workflows/**'
-      - name: Publish Docker Image
-        if: steps.changes.outputs.facade == 'true'
-        uses: sergeysova/docker-publish-action@v1
-        with:
-          image: cardbox/releases/facade
-          registry: docker.pkg.github.com
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: facade/Dockerfile
-          tag_semver: skip
-          tag_separator: "@"
-          semver_higher: true
-
   deploy:
     name: Deploy ${{ github.event.client_payload.github.repository }}
     runs-on: [self-hosted, dev]
-    needs: build-facade
-    
+    defaults:
+      run:
+        working-directory: /home/www/cardbox-releases
+    env:
+      DOMAIN_NAME: 'cardbox.sova.dev'
+      CARDBOX_ACCESSO__URL: 'https://accesso.sova.dev'
+      CARDBOX_ACCESSO__CLIENT_ID: '00000000-0000-4000-acce-000000009100'
+      CARDBOX_ACCESSO__REDIRECT_BACK_URL: 'https://cardbox.sova.dev/accesso/done'
+      CARDBOX_ACCESSO__CLIENT_SECRET: 'CardboxDev'
+      CARDBOX_ACCESSO__SSL_VALIDATE: 'false'
+      DATABASE_HOST: 'database'
     steps:
       - uses: chrnorm/deployment-action@releases/v1
         name: Create GitHub Deployment
@@ -67,7 +47,6 @@ jobs:
 
       - name: Checkout release
         run: |
-          cd ~/cardbox-releases
           git reset --hard HEAD
           git clean -f
           git fetch -p
@@ -75,7 +54,7 @@ jobs:
 
       - name: Docker Compose
         run: |
-          cd ~/cardbox-releases
+          docker login --username ${{ secrets.DOCKER_HUB_LOGIN }} -p ${{ secrets.DOCKER_HUB_TOKEN }}
           docker login docker.pkg.github.com --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           export POSTGRES_DB="${{ secrets.DEV_DB }}"
           export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
