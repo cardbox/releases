@@ -1,10 +1,13 @@
 name: Dev STOP
 
 on:
+  repository_dispatch:
+    types:
+      - stop-dev
   workflow_dispatch:
 
 jobs:
-  
+
   stop-dev:
     name: Stop Docker
     runs-on: [self-hosted, dev]
