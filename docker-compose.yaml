@@ -7,33 +7,127 @@ volumes:
       type: none
       device: "${PWD}/data/images"
       o: bind
-
-  facade-webroot:
-    driver: local
-    driver_opts:
-      type: none
-      device: "${PWD}/data/webroot"
-      o: bind
-
   postgres-storage:
     driver: local
     driver_opts:
       type: none
       device: "${PWD}/data/postgres"
       o: bind
+  grafana-storage:
 
 networks:
-  entry:
+  cardbox:
 
 services:
+  vector:
+    image: timberio/vector:latest-debian
+    container_name: vector
+    hostname: vector
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./services/vector/vector.toml:/etc/vector/vector.toml
+    networks:
+      cardbox:
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    expose:
+      - "3100"
+    environment:
+      - JAEGER_AGENT_HOST=tempo
+      - JAEGER_ENDPOINT=http://tempo:14268/api/traces
+      - JAEGER_SAMPLER_TYPE=const
+      - JAEGER_SAMPLER_PARAM=1
+    networks:
+      cardbox:
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    command: [ "--config.file=/etc/prometheus.yaml" ]
+    volumes:
+      - ./services/grafana/prometheus.yaml:/etc/prometheus.yaml
+    networks:
+      cardbox:
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: "Host(`grafana.${DOMAIN_NAME}`)"
+      traefik.http.routers.grafana.tls: "true"
+    networks:
+      cardbox:
+    volumes:
+      - ./services/grafana/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-storage:/var/lib/grafana
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    expose:
+      - "14268"  # jaeger ingest
+      - "3100"   # tempo
+      - "55680"  # otlp grpc
+      - "55681"  # otlp http
+      - "9411"   # zipkin
+    networks:
+      cardbox:
+    volumes:
+      - ./services/grafana/tempo-local.yaml:/etc/tempo.yaml
+      - ./data/tempo-data:/tmp/tempo
+    restart: unless-stopped
+
+  otel-collector:
+    container_name: otel-collector
+    image: otel/opentelemetry-collector:latest
+    command: [ "--config=/etc/otel-collector.yaml" ]
+    expose:
+      - "4317"
+      - "6831"
+    volumes:
+      - ./services/otel/otel-collector.yaml:/etc/otel-collector.yaml
+    networks:
+      cardbox:
+
+  traefik:
+    container_name: traefik
+    hostname: traefik
+    image: traefik:v2.4
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.traefik.rule: "Host(`traefik.${DOMAIN_NAME}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      traefik.http.routers.traefik.service: "api@internal"
+      traefik.http.routers.traefik.tls: "true"
+      traefik.http.routers.traefik.entrypoints: websecure
+    networks:
+      cardbox:
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./services/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./services/traefik/config-local.yml:/etc/traefik/config.yml:ro
+      - ./tls:/tls
+    restart: unless-stopped
+
   database:
     container_name: cardbox-database
-    image: postgres:11.5
+    image: postgres:13
     restart: always
     volumes:
       - "postgres-storage:/var/lib/postgresql/data"
     networks:
-      - entry
+      cardbox:
+    labels:
+      traefik.enable: "false"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -46,21 +140,36 @@ services:
     image: docker.pkg.github.com/cardbox/backend/api-internal:latest
     restart: always
     expose:
-      - "9008"
+      - "9110"
     depends_on:
       - database
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api-internal.rule: "Host(`${DOMAIN_NAME}`) && PathPrefix(`/api/internal`)"
+      traefik.http.routers.api-internal.middlewares: "api-internal-stripprefix@file"
+      traefik.http.routers.api-internal.tls: "true"
     networks:
-      - entry
+      cardbox:
     environment:
       CARDBOX_DATABASE__DATABASE: ${POSTGRES_DB}
       CARDBOX_DATABASE__HOST: database
       CARDBOX_DATABASE__PASSWORD: ${POSTGRES_PASSWORD}
-      CARDBOX_DATABASE__POOL_SIZE: 4
+      CARDBOX_DATABASE__POOL_SIZE: 8
       CARDBOX_DATABASE__USER: ${POSTGRES_USER}
       CARDBOX_MODE: production
       CARDBOX_SERVER__HOST: "0.0.0.0"
-      CARDBOX_SERVER__PORT: "9008"
+      CARDBOX_SERVER__PORT: "9110"
+      CARDBOX_ACCESSO__URL: ${CARDBOX_ACCESSO__URL}
+      CARDBOX_ACCESSO__CLIENT_ID: ${CARDBOX_ACCESSO__CLIENT_ID}
+      CARDBOX_ACCESSO__REDIRECT_BACK_URL: ${CARDBOX_ACCESSO__REDIRECT_BACK_URL}
+      CARDBOX_ACCESSO__CLIENT_SECRET: ${CARDBOX_ACCESSO__CLIENT_SECRET}
+      CARDBOX_ACCESSO__SSL_VALIDATE: ${CARDBOX_ACCESSO__SSL_VALIDATE}
+      DATABASE_HOST: ${DATABASE_HOST}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
+      OPENTELEMETRY_ENDPOINT_URL: "http://otel-collector:4317"
       RUST_LOG: info
 
   frontend:
@@ -68,35 +177,16 @@ services:
     image: docker.pkg.github.com/cardbox/frontend/main:latest
     depends_on:
       - api-internal
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.frontend.tls: "true"
+      traefik.http.routers.frontend.rule: "Host(`${DOMAIN_NAME}`)"
     expose:
-      - "3000"
+      - "9000"
     networks:
-      - entry
+      cardbox:
     environment:
       PUBLIC_URL: https://cardbox.local
       IMAGE_URL: https://cardbox.local/images
-      BACKEND_URL: http://cardbox-api-internal:9008
-
-  facade:
-    container_name: cardbox-facade
-    image: docker.pkg.github.com/cardbox/releases/facade:latest
-    ports:
-      - 443:443
-      - 80:80
-    depends_on:
-      - api-internal
-      - frontend
-    networks:
-      entry:
-        aliases:
-          - cardbox.local
-    volumes:
-      - "${PWD}/tls/cardbox.crt:/var/lib/cardbox/tls/cardbox.crt"
-      - "${PWD}/tls/cardbox.pem:/var/lib/cardbox/tls/cardbox.pem"
-      - "${PWD}/tls/dhparam.pem:/etc/nginx/ssl/dhparam.pem"
-      - image-storage:/images
-      - facade-webroot:/webroot
-    environment:
-      SERVER_NAME: cardbox.local
-      MAIN_UPSTREAM: cardbox-frontend:3000
-      API_INTERNAL_UPSTREAM: cardbox-api-internal:9008
+      BACKEND_URL: http://cardbox-api-internal:9110
+      PORT: 9000

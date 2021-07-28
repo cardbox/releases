@@ -1,0 +1,36 @@
+name: Dev STOP
+
+on:
+  repository_dispatch:
+    types:
+      - stop-dev
+  workflow_dispatch:
+
+jobs:
+
+  stop-dev:
+    name: Stop Docker
+    runs-on: [self-hosted, dev]
+
+    defaults:
+      run:
+        working-directory: /home/www/cardbox-releases
+
+    steps:
+      - name: Checkout release
+        run: |
+          cd ~/cardbox-releases
+          git reset --hard HEAD
+          git clean -f
+          git fetch -p
+          git checkout ${{ github.sha }}
+
+      - name: Docker compose
+        run: |
+          docker login --username ${{ secrets.DOCKER_HUB_LOGIN }} -p ${{ secrets.DOCKER_HUB_TOKEN }}
+          docker login docker.pkg.github.com --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          export POSTGRES_DB="${{ secrets.DEV_DB }}"
+          export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
+          export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
+          export SENDGRID_API_KEY="${{ secrets.DEV_SENDGRID_API_KEY }}"
+          docker-compose -f docker-compose.yaml -f dev.yaml down
