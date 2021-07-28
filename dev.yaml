@@ -3,13 +3,6 @@ version: "3.7"
 # https://cardbox.sova.dev
 
 volumes:
-  image-storage:
-    driver: local
-    driver_opts:
-      type: none
-      device: "/usr/local/var/cardbox/images"
-      o: bind
-
   postgres-storage:
     driver: local
     driver_opts:
@@ -24,7 +17,8 @@ services:
       - ./services/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./services/traefik/config.yml:/etc/traefik/config.yml:ro
     labels:
-      traefik.http.routers.traefik.tls.certresolver: "le"
+      traefik.http.routers.traefik-secure.tls.certresolver: "le"
+      traefik.http.routers.traefik-secure.middlewares: "dashboard-auth@file"
 
   grafana:
     labels:

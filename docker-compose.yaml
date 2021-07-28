@@ -1,12 +1,6 @@
 version: "3.7"
 
 volumes:
-  image-storage:
-    driver: local
-    driver_opts:
-      type: none
-      device: "${PWD}/data/images"
-      o: bind
   postgres-storage:
     driver: local
     driver_opts:
@@ -100,10 +94,12 @@ services:
     image: traefik:v2.4
     labels:
       traefik.enable: "true"
-      traefik.http.routers.traefik.rule: "Host(`traefik.${DOMAIN_NAME}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
-      traefik.http.routers.traefik.service: "api@internal"
-      traefik.http.routers.traefik.tls: "true"
-      traefik.http.routers.traefik.entrypoints: websecure
+      traefik.http.routers.traefik.entrypoints: web
+      traefik.http.routers.traefik.rule: "Host(`traefik.${DOMAIN_NAME}`)"
+      traefik.http.routers.traefik-secure.entrypoints: websecure
+      traefik.http.routers.traefik-secure.rule: "Host(`traefik.${DOMAIN_NAME}`)"
+      traefik.http.routers.traefik-secure.tls: "true"
+      traefik.http.routers.traefik-secure.service: "api@internal"
     networks:
       cardbox:
     environment:
