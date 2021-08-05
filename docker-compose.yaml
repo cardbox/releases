@@ -83,19 +83,6 @@ services:
     depends_on:
       - database
 
-  otel-collector:
-    image: otel/opentelemetry-collector:latest
-    command: [ "--config=/etc/otel-collector.yaml" ]
-    expose:
-      - "8888" # Prometheus metrics exposed by the collector
-      - "8889" # Prometheus exporter metrics
-      - "4317"
-      - "6831"
-    volumes:
-      - ./services/otel/otel-collector.yaml:/etc/otel-collector.yaml
-    networks:
-      cardbox:
-
   traefik:
     container_name: traefik
     hostname: traefik
@@ -155,7 +142,7 @@ services:
 
   api-internal:
     container_name: cardbox-api-internal
-    image: ghcr.io/cardbox/backend/api-internal:latest
+    image: cardbox-api-internal
     restart: always
     expose:
       - "9110"
@@ -188,7 +175,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}
-      OPENTELEMETRY_ENDPOINT_URL: "http://otel-collector:4317"
+      OPENTELEMETRY_ENDPOINT_URL: "tempo:6831"
       RUST_LOG: info
 
   frontend:

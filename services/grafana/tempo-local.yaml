@@ -3,9 +3,9 @@ server:
 
 distributor:
   receivers:
-    otlp:
+    jaeger:
       protocols:
-        grpc:
+        thrift_compact:
 
   log_received_traces: true
 
