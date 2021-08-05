@@ -77,17 +77,18 @@ services:
     restart: unless-stopped
 
   migrations:
-    image: ghcr.io/cardbox/backend/migrations:latest
+    image: ghcr.io/cardbox/backend/migrations:pr-40
     networks:
       cardbox:
     depends_on:
       - database
 
   otel-collector:
-    container_name: otel-collector
     image: otel/opentelemetry-collector:latest
     command: [ "--config=/etc/otel-collector.yaml" ]
     expose:
+      - "8888" # Prometheus metrics exposed by the collector
+      - "8889" # Prometheus exporter metrics
       - "4317"
       - "6831"
     volumes:
@@ -111,6 +112,8 @@ services:
       cardbox:
     environment:
       DOMAIN_NAME: ${DOMAIN_NAME}
+    expose:
+      - "8082"
     ports:
       - "80:80"
       - "443:443"
@@ -137,6 +140,18 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     expose:
       - "5432"
+
+  postgresql-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter
+    depends_on:
+      - database
+      - migrations
+    expose:
+      - "9187"
+    networks:
+      cardbox:
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}?sslmode=disable
 
   api-internal:
     container_name: cardbox-api-internal
@@ -178,7 +193,7 @@ services:
 
   frontend:
     container_name: cardbox-frontend
-    image: docker.pkg.github.com/cardbox/frontend/main:latest
+    image: ghcr.io/cardbox/frontend/main:latest
     depends_on:
       - api-internal
     labels:

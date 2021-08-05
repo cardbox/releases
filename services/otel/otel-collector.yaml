@@ -1,24 +1,50 @@
 extensions:
-  zpages:
-    endpoint: :55679
+  health_check:
 
 receivers:
   otlp:
     protocols:
       grpc:
+
   jaeger:
     protocols:
       grpc:
       thrift_binary:
       thrift_compact:
       thrift_http:
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'tempo'
+          static_configs:
+            - targets: [ 'tempo:3100' ]
+        - job_name: 'traefik'
+          static_configs:
+            - targets: [ 'traefik:8082' ]
+        - job_name: 'postgresql'
+          static_configs:
+            - targets: [ 'postgresql-exporter:9187' ]
+
+processors:
+  batch:
+
 exporters:
   otlp:
     endpoint: tempo:4317
     insecure: true
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
 service:
   pipelines:
     traces:
       receivers: [otlp,jaeger]
+      processors: [batch]
       exporters: [otlp]
-  extensions: [zpages]
+    metrics:
+      receivers: [prometheus]
+      processors: [batch]
+      exporters: [prometheus]
+
+  extensions: [health_check]
