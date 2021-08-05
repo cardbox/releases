@@ -25,12 +25,12 @@ services:
       traefik.http.routers.grafana.tls.certresolver: "le"
 
   api-internal:
-    image: "docker.pkg.github.com/cardbox/backend/api-internal:latest"
+    image: ghcr.io/cardbox/backend/api-internal:latest
     labels:
       traefik.http.routers.api-internal.tls.certresolver: "le"
 
   frontend:
-    image: "docker.pkg.github.com/cardbox/frontend/main:latest"
+    image: ghcr.io/cardbox/frontend/main:latest
     labels:
       traefik.http.routers.frontend.tls.certresolver: "le"
     environment:

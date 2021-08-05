@@ -28,7 +28,7 @@ jobs:
       - name: Docker compose
         run: |
           docker login --username ${{ secrets.DOCKER_HUB_LOGIN }} -p ${{ secrets.DOCKER_HUB_TOKEN }}
-          docker login docker.pkg.github.com --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker login ghcr.io --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           export POSTGRES_DB="${{ secrets.DEV_DB }}"
           export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
           export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
