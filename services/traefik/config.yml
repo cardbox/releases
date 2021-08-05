@@ -1,5 +1,9 @@
 http:
   middlewares:
+    dashboard-auth:
+      basicAuth:
+        users:
+          - "admin_cardbox:$2y$10$IVNHfSfHJ4DRNOU7y4HEqeeq16fiCPRsMyWYSEMuHaWm98jcBnhNO"
     api-internal-stripprefix:
       stripPrefix:
         prefixes:

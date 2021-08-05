@@ -1,12 +1,6 @@
 version: "3.7"
 
 volumes:
-  image-storage:
-    driver: local
-    driver_opts:
-      type: none
-      device: "${PWD}/data/images"
-      o: bind
   postgres-storage:
     driver: local
     driver_opts:
@@ -82,11 +76,19 @@ services:
       - ./data/tempo-data:/tmp/tempo
     restart: unless-stopped
 
+  migrations:
+    image: ghcr.io/cardbox/backend/migrations:pr-40
+    networks:
+      cardbox:
+    depends_on:
+      - database
+
   otel-collector:
-    container_name: otel-collector
     image: otel/opentelemetry-collector:latest
     command: [ "--config=/etc/otel-collector.yaml" ]
     expose:
+      - "8888" # Prometheus metrics exposed by the collector
+      - "8889" # Prometheus exporter metrics
       - "4317"
       - "6831"
     volumes:
@@ -100,14 +102,18 @@ services:
     image: traefik:v2.4
     labels:
       traefik.enable: "true"
-      traefik.http.routers.traefik.rule: "Host(`traefik.${DOMAIN_NAME}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
-      traefik.http.routers.traefik.service: "api@internal"
-      traefik.http.routers.traefik.tls: "true"
-      traefik.http.routers.traefik.entrypoints: websecure
+      traefik.http.routers.traefik.entrypoints: web
+      traefik.http.routers.traefik.rule: "Host(`traefik.${DOMAIN_NAME}`)"
+      traefik.http.routers.traefik-secure.entrypoints: websecure
+      traefik.http.routers.traefik-secure.rule: "Host(`traefik.${DOMAIN_NAME}`)"
+      traefik.http.routers.traefik-secure.tls: "true"
+      traefik.http.routers.traefik-secure.service: "api@internal"
     networks:
       cardbox:
     environment:
       DOMAIN_NAME: ${DOMAIN_NAME}
+    expose:
+      - "8082"
     ports:
       - "80:80"
       - "443:443"
@@ -135,14 +141,27 @@ services:
     expose:
       - "5432"
 
+  postgresql-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter
+    depends_on:
+      - database
+      - migrations
+    expose:
+      - "9187"
+    networks:
+      cardbox:
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database/${POSTGRES_DB}?sslmode=disable
+
   api-internal:
     container_name: cardbox-api-internal
-    image: docker.pkg.github.com/cardbox/backend/api-internal:latest
+    image: ghcr.io/cardbox/backend/api-internal:latest
     restart: always
     expose:
       - "9110"
     depends_on:
       - database
+      - migrations
     labels:
       traefik.enable: "true"
       traefik.http.routers.api-internal.rule: "Host(`${DOMAIN_NAME}`) && PathPrefix(`/api/internal`)"
@@ -174,7 +193,7 @@ services:
 
   frontend:
     container_name: cardbox-frontend
-    image: docker.pkg.github.com/cardbox/frontend/main:latest
+    image: ghcr.io/cardbox/frontend/main:latest
     depends_on:
       - api-internal
     labels:
@@ -182,11 +201,11 @@ services:
       traefik.http.routers.frontend.tls: "true"
       traefik.http.routers.frontend.rule: "Host(`${DOMAIN_NAME}`)"
     expose:
-      - "9000"
+      - "3000"
     networks:
       cardbox:
     environment:
       PUBLIC_URL: https://cardbox.local
       IMAGE_URL: https://cardbox.local/images
       BACKEND_URL: http://cardbox-api-internal:9110
-      PORT: 9000
+      PORT: 3000

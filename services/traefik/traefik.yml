@@ -8,18 +8,24 @@ api:
 log:
   level: DEBUG
 
+metrics:
+  prometheus:
+    entryPoint: metrics
+
 providers:
   docker:
     endpoint: unix:///var/run/docker.sock
     watch: true
     exposedByDefault: false
-    network: "cardbox"
+    network: "releases_cardbox"
 
   file:
     filename: /etc/traefik/config.yml
     watch: true
 
 entryPoints:
+  metrics:
+    address: :8082
   web:
     address: :80
     http:
@@ -48,6 +54,3 @@ tracing:
   jaeger:
     samplingParam: 1
     localAgentHostPort: otel-collector:6831
-
-metrics:
-  prometheus: {}
