@@ -1,3 +1,3 @@
 #!/bin/bash
 
-mkcert -key-file tls/accesso-local.pem -cert-file tls/accesso-local.cert accesso.localhost "*.accesso.localhost"
+mkcert -key-file tls/cardbox-local.pem -cert-file tls/cardbox-local.cert cardbox.localhost "*.cardbox.localhost"
