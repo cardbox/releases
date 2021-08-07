@@ -125,8 +125,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    expose:
-      - "5432"
+    ports:
+      - "5432:5432"
 
   postgresql-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter
