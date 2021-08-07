@@ -26,6 +26,8 @@ services:
 
   api-internal:
     image: ghcr.io/cardbox/backend/api-internal:latest
+    environment:
+      CARDBOX_ACCESSO__SSL_VALIDATE: "false"
     labels:
       traefik.http.routers.api-internal.tls.certresolver: "le"
 
