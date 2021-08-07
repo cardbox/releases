@@ -3,3 +3,5 @@ data
 .env
 .idea
 tls/acme.json
+tls/cardbox-local.cert
+tls/cardbox-local.pem
