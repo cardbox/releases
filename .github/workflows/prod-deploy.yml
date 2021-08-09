@@ -19,9 +19,6 @@ jobs:
     if: contains('["Drevoed","sergeysova"]', github.actor)
     name: Deploy ${{ github.event.client_payload.github.repository }}
     runs-on: [prod]
-    defaults:
-      run:
-        working-directory: /home/www/cardbox-releases
     env:
       DOMAIN_NAME: 'cardbox.dev'
       CARDBOX_ACCESSO__URL: 'https://accesso.app'
