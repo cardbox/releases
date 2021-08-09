@@ -1,5 +1,5 @@
 
-name: Deploy Dev
+name: Deploy Prod
 
 on:
   push:
@@ -10,23 +10,23 @@ on:
       - "dev.yaml"
       - ".github/workflows/dev-deploy.yml"
       - "services/*"
-  repository_dispatch:
-    types:
-      - deploy-dev
   workflow_dispatch:
+
 
 jobs:
   deploy:
+    # Restrict deploy to prod
+    if: contains('["Drevoed","sergeysova"]', github.actor)
     name: Deploy ${{ github.event.client_payload.github.repository }}
-    runs-on: [self-hosted, dev]
+    runs-on: [prod]
     defaults:
       run:
         working-directory: /home/www/cardbox-releases
     env:
-      DOMAIN_NAME: 'cardbox.sova.dev'
-      CARDBOX_ACCESSO__URL: 'https://accesso.sova.dev'
+      DOMAIN_NAME: 'cardbox.dev'
+      CARDBOX_ACCESSO__URL: 'https://accesso.app'
       CARDBOX_ACCESSO__CLIENT_ID: '00000000-0000-4000-acce-000000009100'
-      CARDBOX_ACCESSO__REDIRECT_BACK_URL: 'https://cardbox.sova.dev/accesso/done'
+      CARDBOX_ACCESSO__REDIRECT_BACK_URL: 'https://cardbox.dev/accesso/done'
       CARDBOX_ACCESSO__CLIENT_SECRET: 'CardboxDev'
       CARDBOX_ACCESSO__SSL_VALIDATE: 'false'
       DATABASE_HOST: 'database'
@@ -37,7 +37,7 @@ jobs:
         with:
           token: '${{ github.token }}'
           environment: development
-      
+
       - uses: sergeysova/deployment-status@releases/v1.1
         name: Deployment progress
         with:
@@ -59,9 +59,9 @@ jobs:
           export POSTGRES_DB="${{ secrets.DEV_DB }}"
           export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
           export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
-          docker-compose -f docker-compose.yaml -f dev.yaml pull
-          docker-compose -f docker-compose.yaml -f dev.yaml build
-          docker-compose -f docker-compose.yaml -f dev.yaml up -d --remove-orphans
+          docker-compose -f docker-compose.yaml -f prod.yaml pull
+          docker-compose -f docker-compose.yaml -f prod.yaml build
+          docker-compose -f docker-compose.yaml -f prod.yaml up -d --remove-orphans
 
       - uses: sergeysova/deployment-status@releases/v1.1
         name: Deployment success

@@ -1,0 +1,101 @@
+version: "3.7"
+
+services:
+  traefik:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./services/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./services/traefik/config.yml:/etc/traefik/config.yml:ro
+    labels:
+      traefik.http.routers.traefik-secure.tls.certresolver: "le"
+      traefik.http.middlewares.add-ui.addprefix.prefix: "/ui"
+      traefik.http.routers.traefik-secure.middlewares: "dashboard-auth@file"
+
+  api-internal:
+    image: ghcr.io/cardbox/backend/api-internal:latest
+    labels:
+      traefik.http.routers.api-internal.tls.certresolver: "le"
+
+  frontend:
+    image: ghcr.io/cardbox/frontend/main:latest
+    labels:
+      traefik.http.routers.frontend.tls.certresolver: "le"
+    environment:
+      PUBLIC_URL: https://cardbox.dev
+      IMAGE_URL: https://cardbox.dev/images
+      DEBUG: "true"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    expose:
+      - "3100"
+    environment:
+      - JAEGER_AGENT_HOST=tempo
+      - JAEGER_ENDPOINT=http://tempo:14268/api/traces
+      - JAEGER_SAMPLER_TYPE=const
+      - JAEGER_SAMPLER_PARAM=1
+    networks:
+      cardbox:
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    command: [ "--config.file=/etc/prometheus.yaml" ]
+    volumes:
+      - ./services/grafana/prometheus.yaml:/etc/prometheus.yaml
+    networks:
+      cardbox:
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: "Host(`grafana.${DOMAIN_NAME}`)"
+      traefik.http.routers.grafana.tls: "true"
+      traefik.http.routers.grafana.tls.certresolver: "le"
+    networks:
+      cardbox:
+    volumes:
+      - ./services/grafana/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-storage:/var/lib/grafana
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    expose:
+      - "14268"  # jaeger ingest
+      - "3100"   # tempo
+      - "55680"  # otlp grpc
+      - "55681"  # otlp http
+      - "9411"   # zipkin
+    networks:
+      cardbox:
+    volumes:
+      - ./services/grafana/tempo-local.yaml:/etc/tempo.yaml
+      - ./data/tempo-data:/tmp/tempo
+    restart: unless-stopped
+
+  vault:
+    command:
+      - "server"
+    image: vault:1.8.1
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.vault.rule: "Host(`vault.${DOMAIN_NAME}`)"
+      traefik.http.routers.vault.tls: "true"
+      traefik.http.routers.vault.tls.certresolver: "le"
+      traefik.http.routers.vault.middlewares: "add-ui"
+    environment:
+      VAULT_ADDR: 'http://0.0.0.0:8200'
+    expose:
+      - "8200"
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ./services/vault:/vault/config
+    networks:
+      cardbox:
