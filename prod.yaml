@@ -1,5 +1,13 @@
 version: "3.7"
 
+volumes:
+  postgres-storage:
+    driver: local
+    driver_opts:
+      type: none
+      device: "/usr/local/var/cardbox/postgres"
+      o: bind
+
 services:
   traefik:
     volumes:
