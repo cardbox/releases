@@ -104,6 +104,6 @@ services:
     cap_add:
       - IPC_LOCK
     volumes:
-      - ./services/vault:/vault/config
+      - ./services/vault:/vault/config:ro
     networks:
       cardbox:
