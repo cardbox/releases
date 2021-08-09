@@ -45,12 +45,7 @@ jobs:
           state: in_progress
           deployment_id: ${{ steps.deployment.outputs.deployment_id }}
 
-      - name: Checkout release
-        run: |
-          git reset --hard HEAD
-          git clean -f
-          git fetch -p
-          git checkout ${{ github.sha }}
+      - uses: actions/checkout@v2
 
       - name: Docker Compose
         run: |
@@ -68,7 +63,7 @@ jobs:
         if: success()
         with:
           token: '${{ github.token }}'
-          environment_url: https://cardbox.sova.dev
+          environment_url: https://cardbox.dev
           state: success
           deployment_id: ${{ steps.deployment.outputs.deployment_id }}
 
