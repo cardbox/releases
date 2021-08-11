@@ -24,7 +24,7 @@ services:
       cardbox:
 
   migrations:
-    image: ghcr.io/cardbox/backend/migrations:pr-40
+    image: ghcr.io/cardbox/backend/migrations:latest
     networks:
       cardbox:
     depends_on:
