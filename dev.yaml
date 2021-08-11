@@ -38,4 +38,5 @@ services:
     environment:
       PUBLIC_URL: https://cardbox.sova.dev
       IMAGE_URL: https://cardbox.sova.dev/images
+      RAZZLE_SESSION_TOKEN: ${RAZZLE_SESSION_TOKEN}
       DEBUG: "true"
