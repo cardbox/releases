@@ -64,6 +64,59 @@ services:
       - ./tls:/tls
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    expose:
+      - "3100"
+    environment:
+      - JAEGER_AGENT_HOST=tempo
+      - JAEGER_ENDPOINT=http://tempo:14268/api/traces
+      - JAEGER_SAMPLER_TYPE=const
+      - JAEGER_SAMPLER_PARAM=1
+    networks:
+      cardbox:
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    command: [ "--config.file=/etc/prometheus.yaml" ]
+    volumes:
+      - ./services/grafana/prometheus.yaml:/etc/prometheus.yaml
+    networks:
+      cardbox:
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: "Host(`grafana.${DOMAIN_NAME}`)"
+      traefik.http.routers.grafana.tls: "true"
+    networks:
+      cardbox:
+    volumes:
+      - ./services/grafana/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-storage:/var/lib/grafana
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    expose:
+      - "14268"  # jaeger ingest
+      - "3100"   # tempo
+      - "55680"  # otlp grpc
+      - "55681"  # otlp http
+      - "9411"   # zipkin
+    networks:
+      cardbox:
+    volumes:
+      - ./services/grafana/tempo-local.yaml:/etc/tempo.yaml
+      - ./data/tempo-data:/tmp/tempo
+    restart: unless-stopped
+
   database:
     container_name: cardbox-database
     image: postgres:13
