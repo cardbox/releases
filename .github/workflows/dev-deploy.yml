@@ -24,7 +24,7 @@ jobs:
         working-directory: /home/www/cardbox-releases
     env:
       DOMAIN_NAME: 'cardbox.sova.dev'
-      CARDBOX_USE_SSL: "false"
+      CARDBOX_SERVER__USE_SSL: "false"
       CARDBOX_ACCESSO__URL: 'https://accesso.sova.dev'
       CARDBOX_ACCESSO__CLIENT_ID: '00000000-0000-4000-acce-000000009100'
       CARDBOX_ACCESSO__REDIRECT_BACK_URL: 'https://cardbox.sova.dev/accesso/done'
@@ -60,7 +60,7 @@ jobs:
           export POSTGRES_DB="${{ secrets.DEV_DB }}"
           export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
           export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
-          export CARDBOX_USE_SSL="${{ env.CARDBOX_USE_SSL }}"
+          export CARDBOX_SERVER__USE_SSL="${{ env.CARDBOX_USE_SSL }}"
           export RAZZLE_SESSION_TOKEN="${{ secrets.DEV_RAZZLE_SESSION_TOKEN }}"
           docker-compose -f docker-compose.yaml -f dev.yaml pull
           docker-compose -f docker-compose.yaml -f dev.yaml build
