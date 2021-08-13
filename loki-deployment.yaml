@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f resolved.yaml convert
+    kompose.version: 1.23.0 (bc7d9f4f)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: loki
+  name: loki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: loki
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f resolved.yaml convert
+        kompose.version: 1.23.0 (bc7d9f4f)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/cardbox: "true"
+        io.kompose.service: loki
+    spec:
+      containers:
+        - env:
+            - name: JAEGER_AGENT_HOST
+              value: tempo
+            - name: JAEGER_ENDPOINT
+              value: http://tempo:14268/api/traces
+            - name: JAEGER_SAMPLER_PARAM
+              value: "1"
+            - name: JAEGER_SAMPLER_TYPE
+              value: const
+          image: grafana/loki:latest
+          name: loki
+          ports:
+            - containerPort: 3100
+          resources: {}
+      hostname: loki
+      restartPolicy: Always
+status: {}

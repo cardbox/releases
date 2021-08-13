@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f resolved.yaml convert
+    kompose.version: 1.23.0 (bc7d9f4f)
+    traefik.enable: "true"
+    traefik.http.routers.frontend.rule: Host(`vetro.me`)
+    traefik.http.routers.frontend.tls: "true"
+    traefik.http.routers.frontend.tls.certresolver: le
+  creationTimestamp: null
+  labels:
+    io.kompose.service: frontend
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: frontend
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f resolved.yaml convert
+        kompose.version: 1.23.0 (bc7d9f4f)
+        traefik.enable: "true"
+        traefik.http.routers.frontend.rule: Host(`vetro.me`)
+        traefik.http.routers.frontend.tls: "true"
+        traefik.http.routers.frontend.tls.certresolver: le
+      creationTimestamp: null
+      labels:
+        io.kompose.network/cardbox: "true"
+        io.kompose.service: frontend
+    spec:
+      containers:
+        - env:
+            - name: BACKEND_URL
+              value: http://cardbox-api-internal:9110
+            - name: DEBUG
+              value: "true"
+            - name: IMAGE_URL
+              value: https://cardbox.dev/images
+            - name: PORT
+              value: "3000"
+            - name: PUBLIC_URL
+              value: https://cardbox.dev
+          image: ghcr.io/cardbox/frontend/main:latest
+          name: cardbox-frontend
+          ports:
+            - containerPort: 3000
+          resources: {}
+      restartPolicy: Always
+status: {}

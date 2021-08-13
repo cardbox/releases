@@ -1,0 +1,210 @@
+# frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cardbox-frontend-deployment
+spec:
+  selector:
+    matchLabels:
+      app: cardbox
+      tier: frontend
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: cardbox
+        tier: frontend
+    spec:
+      containers:
+        - name: cardbox-frontend
+          image: "eu.gcr.io/fair-terminus-322419/frontend:latest"
+          env:
+            - name: "PORT"
+              value: "3000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cardbox-frontend
+spec:
+  type: NodePort
+  selector:
+    app: cardbox
+    tier: frontend
+  ports:
+    - protocol: TCP
+      port: 60000
+      targetPort: 3000
+---
+# api-internal
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cardbox-api-internal-deployment
+spec:
+  selector:
+    matchLabels:
+      app: cardbox
+      tier: api-internal
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: cardbox
+        tier: api-internal
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-inject-status: "update"
+        vault.hashicorp.com/ca-cert: "/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        vault.hashicorp.com/role: "db-role"
+        vault.hashicorp.com/log-level: "trace"
+        vault.hashicorp.com/agent-inject-secret-db: "kv/cardbox-database"
+        vault.hashicorp.com/agent-inject-template-db: |
+          {{ with secret "kv/cardbox-database" -}}
+            export POSTGRES_USER="{{ .Data.data.POSTGRES_USER }}"
+            export POSTGRES_PASSWORD="{{ .Data.data.POSTGRES_PASSWORD }}"
+            export POSTGRES_DB="{{ .Data.data.POSTGRES_DB }}"
+            export CARDBOX_DATABASE__DATABASE=${POSTGRES_DB}
+            export CARDBOX_DATABASE__PASSWORD=${POSTGRES_PASSWORD}
+            export CARDBOX_DATABASE__USER=${POSTGRES_USER}
+          {{- end }}
+    spec:
+      volumes:
+        - name: cardbox-db-secret
+          secret:
+            secretName: cardbox-db-secret
+        - name: cardbox-tls
+          secret:
+            secretName: cardbox-tls-secret
+      serviceAccountName: vault-auth
+      containers:
+        - name: cardbox-api-internal
+          volumeMounts:
+            - mountPath: /tls/
+              name: cardbox-tls
+          livenessProbe:
+            httpGet:
+              port: 9110
+              path: /health
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          image: "eu.gcr.io/fair-terminus-322419/backend/api-internal:latest"
+          imagePullPolicy: Always
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - ". /vault/secrets/db && /cardbox-api-${API_NAME}"
+          env:
+            - name: CARDBOX_DATABASE__HOST
+              value: 127.0.0.1
+            - name: CARDBOX_DATABASE__POOL_SIZE
+              value: "8"
+            - name: CARDBOX_DATABASE__SSL_VALIDATE
+              value: "false"
+            - name: CARDBOX_MODE
+              value: production
+            - name: CARDBOX_USE_OPENTELEMETRY
+              value: "false"
+            - name: CARDBOX_SERVER__HOST
+              value: "0.0.0.0"
+            - name: CARDBOX_SERVER__PORT
+              value: "9110"
+            - name: CARDBOX_ACCESSO__URL
+              # TODO: fix to prod
+              value: https://accesso.sova.dev
+            - name: CARDBOX_ACCESSO__CLIENT_ID
+              value: "00000000-0000-4000-acce-000000009100"
+            - name: CARDBOX_ACCESSO__REDIRECT_BACK_URL
+              value: "http://cardbox.dev/accesso/done"
+            - name: CARDBOX_ACCESSO__CLIENT_SECRET
+              value: "CardboxDev"
+            - name: CARDBOX_ACCESSO__SSL_VALIDATE
+              value: "false"
+            - name: CARDBOX_DATABASE__USE_SSL
+              value: "true"
+            - name: TLS_KEY_FILE
+              value: /tls/tls.key
+            - name: TLS_CERT_FILE
+              value: /tls/tls.crt
+            - name: RUST_LOG
+              value: "TRACE"
+        - name: cloud-sql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:latest
+          command:
+            - "/cloud_sql_proxy"
+            - "-instances=fair-terminus-322419:europe-central2:cardbox-dev=tcp:5432"
+            - "-credential_file=/secrets/service_account.json"
+          securityContext:
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /secrets/
+              readOnly: true
+              name: cardbox-db-secret
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration-job
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-inject-status: "update"
+        vault.hashicorp.com/ca-cert: "/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        vault.hashicorp.com/role: "db-role"
+        vault.hashicorp.com/log-level: "trace"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/agent-inject-secret-db: "kv/cardbox-database"
+        vault.hashicorp.com/agent-inject-template-db: |
+          {{ with secret "kv/cardbox-database" -}}
+            export POSTGRES_USER="{{ .Data.data.POSTGRES_USER }}"
+            export POSTGRES_PASSWORD="{{ .Data.data.POSTGRES_PASSWORD }}"
+            export POSTGRES_DB="{{ .Data.data.POSTGRES_DB }}"
+            export DATABASE_HOST="127.0.0.1"
+            export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}"
+          {{- end }}
+    spec:
+      serviceAccountName: vault-auth
+      restartPolicy: Never
+      volumes:
+        - name: cardbox-db-secret
+          secret:
+            secretName: cardbox-db-secret
+      containers:
+        - name: cardbox-migrations
+          image: eu.gcr.io/fair-terminus-322419/backend/migrations
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - ". /vault/secrets/db && /app/entrypoint.sh"
+        - name: cloud-sql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:latest
+          command:
+            - "/cloud_sql_proxy"
+            - "-instances=fair-terminus-322419:europe-central2:cardbox-dev=tcp:5432"
+            - "-credential_file=/secrets/service_account.json"
+          securityContext:
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /secrets/
+              readOnly: true
+              name: cardbox-db-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cardbox-api-internal
+spec:
+  type: NodePort
+  selector:
+    app: cardbox
+    tier: api-internal
+  ports:
+    - protocol: TCP
+      port: 60001
+      targetPort: 9110
+---

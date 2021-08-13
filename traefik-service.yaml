@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose -f resolved.yaml convert
+    kompose.version: 1.23.0 (bc7d9f4f)
+    traefik.enable: "true"
+    traefik.http.middlewares.add-ui.addprefix.prefix: /ui
+    traefik.http.routers.traefik-secure.entrypoints: websecure
+    traefik.http.routers.traefik-secure.middlewares: dashboard-auth@file
+    traefik.http.routers.traefik-secure.rule: Host(`traefik.vetro.me`)
+    traefik.http.routers.traefik-secure.service: api@internal
+    traefik.http.routers.traefik-secure.tls: "true"
+    traefik.http.routers.traefik-secure.tls.certresolver: le
+    traefik.http.routers.traefik.entrypoints: web
+    traefik.http.routers.traefik.rule: Host(`traefik.vetro.me`)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: traefik
+  name: traefik
+spec:
+  ports:
+    - name: "80"
+      port: 80
+      targetPort: 80
+    - name: "443"
+      port: 443
+      targetPort: 443
+    - name: "8082"
+      port: 8082
+      targetPort: 8082
+  selector:
+    io.kompose.service: traefik
+status:
+  loadBalancer: {}

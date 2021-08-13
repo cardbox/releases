@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f resolved.yaml convert
+    kompose.version: 1.23.0 (bc7d9f4f)
+    traefik.enable: "true"
+    traefik.http.routers.vault.middlewares: add-ui
+    traefik.http.routers.vault.rule: Host(`vault.vetro.me`)
+    traefik.http.routers.vault.tls: "true"
+    traefik.http.routers.vault.tls.certresolver: le
+  creationTimestamp: null
+  labels:
+    io.kompose.service: vault
+  name: vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: vault
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f resolved.yaml convert
+        kompose.version: 1.23.0 (bc7d9f4f)
+        traefik.enable: "true"
+        traefik.http.routers.vault.middlewares: add-ui
+        traefik.http.routers.vault.rule: Host(`vault.vetro.me`)
+        traefik.http.routers.vault.tls: "true"
+        traefik.http.routers.vault.tls.certresolver: le
+      creationTimestamp: null
+      labels:
+        io.kompose.network/cardbox: "true"
+        io.kompose.service: vault
+    spec:
+      containers:
+        - args:
+            - server
+          env:
+            - name: VAULT_ADDR
+              value: http://0.0.0.0:8200
+          image: vault:1.8.1
+          name: vault
+          ports:
+            - containerPort: 8200
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          volumeMounts:
+            - mountPath: /vault/config
+              name: vault-claim0
+              readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: vault-claim0
+          persistentVolumeClaim:
+            claimName: vault-claim0
+            readOnly: true
+status: {}

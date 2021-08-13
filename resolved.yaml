@@ -1,0 +1,225 @@
+networks:
+  cardbox: {}
+services:
+  api-internal:
+    container_name: cardbox-api-internal
+    depends_on:
+    - database
+    - migrations
+    environment:
+      CARDBOX_ACCESSO__CLIENT_ID: 00000000-0000-4000-acce-000000009100
+      CARDBOX_ACCESSO__CLIENT_SECRET: CardboxDev
+      CARDBOX_ACCESSO__REDIRECT_BACK_URL: https://vetro.me/accesso/done
+      CARDBOX_ACCESSO__SSL_VALIDATE: "false"
+      CARDBOX_ACCESSO__URL: https://accesso.sova.dev
+      CARDBOX_DATABASE__DATABASE: cardbox_dev
+      CARDBOX_DATABASE__HOST: database
+      CARDBOX_DATABASE__PASSWORD: cardbox
+      CARDBOX_DATABASE__POOL_SIZE: 8
+      CARDBOX_DATABASE__USER: cardbox
+      CARDBOX_MODE: production
+      CARDBOX_SERVER__HOST: 0.0.0.0
+      CARDBOX_SERVER__PORT: '9110'
+      CARDBOX_USE_OPENTELEMETRY: "true"
+      DATABASE_HOST: database
+      DATABASE_URL: postgres://cardbox:cardbox@database/cardbox_dev
+      OPENTELEMETRY_ENDPOINT_URL: tempo:6831
+      POSTGRES_DB: cardbox_dev
+      POSTGRES_PASSWORD: cardbox
+      POSTGRES_USER: cardbox
+      RUST_LOG: info
+    expose:
+    - '9110'
+    image: ghcr.io/cardbox/backend/api-internal:latest
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api-internal.middlewares: api-internal-stripprefix@file
+      traefik.http.routers.api-internal.rule: Host(`vetro.me`) && PathPrefix(`/api/internal`)
+      traefik.http.routers.api-internal.tls: "true"
+      traefik.http.routers.api-internal.tls.certresolver: le
+    networks:
+      cardbox: {}
+    restart: always
+  database:
+    container_name: cardbox-database
+    environment:
+      POSTGRES_DB: cardbox_dev
+      POSTGRES_PASSWORD: cardbox
+      POSTGRES_USER: cardbox
+    image: postgres:13
+    labels:
+      traefik.enable: "false"
+    networks:
+      cardbox: {}
+    ports:
+    - published: 5432
+      target: 5432
+    restart: always
+    volumes:
+    - postgres-storage:/var/lib/postgresql/data:rw
+  frontend:
+    container_name: cardbox-frontend
+    depends_on:
+    - api-internal
+    environment:
+      BACKEND_URL: http://cardbox-api-internal:9110
+      DEBUG: "true"
+      IMAGE_URL: https://cardbox.dev/images
+      PORT: 3000
+      PUBLIC_URL: https://cardbox.dev
+    expose:
+    - '3000'
+    image: ghcr.io/cardbox/frontend/main:latest
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.frontend.rule: Host(`vetro.me`)
+      traefik.http.routers.frontend.tls: "true"
+      traefik.http.routers.frontend.tls.certresolver: le
+    networks:
+      cardbox: {}
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: Host(`grafana.vetro.me`)
+      traefik.http.routers.grafana.tls: "true"
+      traefik.http.routers.grafana.tls.certresolver: le
+    networks:
+      cardbox: {}
+    volumes:
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/grafana/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:rw
+    - grafana-storage:/var/lib/grafana:rw
+  loki:
+    container_name: loki
+    environment:
+      JAEGER_AGENT_HOST: tempo
+      JAEGER_ENDPOINT: http://tempo:14268/api/traces
+      JAEGER_SAMPLER_PARAM: '1'
+      JAEGER_SAMPLER_TYPE: const
+    expose:
+    - '3100'
+    hostname: loki
+    image: grafana/loki:latest
+    networks:
+      cardbox: {}
+  migrations:
+    depends_on:
+    - database
+    environment:
+      DATABASE_HOST: database
+      DATABASE_URL: postgres://cardbox:cardbox@database/cardbox_dev
+      POSTGRES_DB: cardbox_dev
+      POSTGRES_PASSWORD: cardbox
+      POSTGRES_USER: cardbox
+    image: ghcr.io/cardbox/backend/migrations:pr-40
+    networks:
+      cardbox: {}
+  postgresql-exporter:
+    depends_on:
+    - database
+    - migrations
+    environment:
+      DATA_SOURCE_NAME: postgresql://cardbox:cardbox@database/cardbox_dev?sslmode=disable
+    expose:
+    - '9187'
+    image: quay.io/prometheuscommunity/postgres-exporter
+    networks:
+      cardbox: {}
+  prometheus:
+    command:
+    - --config.file=/etc/prometheus.yaml
+    container_name: prometheus
+    image: prom/prometheus:latest
+    networks:
+      cardbox: {}
+    volumes:
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/grafana/prometheus.yaml:/etc/prometheus.yaml:rw
+  tempo:
+    command:
+    - -config.file=/etc/tempo.yaml
+    container_name: tempo
+    expose:
+    - '14268'
+    - '3100'
+    - '55680'
+    - '55681'
+    - '9411'
+    image: grafana/tempo:latest
+    networks:
+      cardbox: {}
+    restart: unless-stopped
+    volumes:
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/grafana/tempo-local.yaml:/etc/tempo.yaml:rw
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/data/tempo-data:/tmp/tempo:rw
+  traefik:
+    container_name: traefik
+    environment:
+      DOMAIN_NAME: vetro.me
+    expose:
+    - '8082'
+    hostname: traefik
+    image: traefik:v2.4
+    labels:
+      traefik.enable: "true"
+      traefik.http.middlewares.add-ui.addprefix.prefix: /ui
+      traefik.http.routers.traefik-secure.entrypoints: websecure
+      traefik.http.routers.traefik-secure.middlewares: dashboard-auth@file
+      traefik.http.routers.traefik-secure.rule: Host(`traefik.vetro.me`)
+      traefik.http.routers.traefik-secure.service: api@internal
+      traefik.http.routers.traefik-secure.tls: "true"
+      traefik.http.routers.traefik-secure.tls.certresolver: le
+      traefik.http.routers.traefik.entrypoints: web
+      traefik.http.routers.traefik.rule: Host(`traefik.vetro.me`)
+    networks:
+      cardbox: {}
+    ports:
+    - published: 80
+      target: 80
+    - published: 443
+      target: 443
+    restart: unless-stopped
+    volumes:
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/traefik/config.yml:/etc/traefik/config.yml:ro
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/tls:/tls:rw
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  vault:
+    cap_add:
+    - IPC_LOCK
+    command:
+    - server
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8200
+    expose:
+    - '8200'
+    image: vault:1.8.1
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.vault.middlewares: add-ui
+      traefik.http.routers.vault.rule: Host(`vault.vetro.me`)
+      traefik.http.routers.vault.tls: "true"
+      traefik.http.routers.vault.tls.certresolver: le
+    networks:
+      cardbox: {}
+    volumes:
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/vault:/vault/config:ro
+  vector:
+    container_name: vector
+    hostname: vector
+    image: timberio/vector:latest-debian
+    networks:
+      cardbox: {}
+    volumes:
+    - /home/miron/CLionProjects/cardbox/releases/cardbox-releases/services/vector/vector.toml:/etc/vector/vector.toml:rw
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+version: '3.7'
+volumes:
+  grafana-storage: {}
+  postgres-storage:
+    driver: local
+    driver_opts:
+      device: /usr/local/var/cardbox/postgres
+      o: bind
+      type: none
+

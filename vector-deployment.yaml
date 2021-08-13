@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f resolved.yaml convert
+    kompose.version: 1.23.0 (bc7d9f4f)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: vector
+  name: vector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: vector
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f resolved.yaml convert
+        kompose.version: 1.23.0 (bc7d9f4f)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/cardbox: "true"
+        io.kompose.service: vector
+    spec:
+      containers:
+        - image: timberio/vector:latest-debian
+          name: vector
+          resources: {}
+          volumeMounts:
+            - mountPath: /etc/vector/vector.toml
+              name: vector-claim0
+            - mountPath: /var/run/docker.sock
+              name: vector-claim1
+              readOnly: true
+      hostname: vector
+      restartPolicy: Always
+      volumes:
+        - name: vector-claim0
+          persistentVolumeClaim:
+            claimName: vector-claim0
+        - name: vector-claim1
+          persistentVolumeClaim:
+            claimName: vector-claim1
+            readOnly: true
+status: {}

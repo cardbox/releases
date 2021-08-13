@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f resolved.yaml convert
+    kompose.version: 1.23.0 (bc7d9f4f)
+    traefik.enable: "true"
+    traefik.http.middlewares.add-ui.addprefix.prefix: /ui
+    traefik.http.routers.traefik-secure.entrypoints: websecure
+    traefik.http.routers.traefik-secure.middlewares: dashboard-auth@file
+    traefik.http.routers.traefik-secure.rule: Host(`traefik.vetro.me`)
+    traefik.http.routers.traefik-secure.service: api@internal
+    traefik.http.routers.traefik-secure.tls: "true"
+    traefik.http.routers.traefik-secure.tls.certresolver: le
+    traefik.http.routers.traefik.entrypoints: web
+    traefik.http.routers.traefik.rule: Host(`traefik.vetro.me`)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: traefik
+  name: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: traefik
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f resolved.yaml convert
+        kompose.version: 1.23.0 (bc7d9f4f)
+        traefik.enable: "true"
+        traefik.http.middlewares.add-ui.addprefix.prefix: /ui
+        traefik.http.routers.traefik-secure.entrypoints: websecure
+        traefik.http.routers.traefik-secure.middlewares: dashboard-auth@file
+        traefik.http.routers.traefik-secure.rule: Host(`traefik.vetro.me`)
+        traefik.http.routers.traefik-secure.service: api@internal
+        traefik.http.routers.traefik-secure.tls: "true"
+        traefik.http.routers.traefik-secure.tls.certresolver: le
+        traefik.http.routers.traefik.entrypoints: web
+        traefik.http.routers.traefik.rule: Host(`traefik.vetro.me`)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/cardbox: "true"
+        io.kompose.service: traefik
+    spec:
+      containers:
+        - env:
+            - name: DOMAIN_NAME
+              value: vetro.me
+          image: traefik:v2.4
+          name: traefik
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 8082
+          resources: {}
+          volumeMounts:
+            - mountPath: /etc/traefik/config.yml
+              name: traefik-claim0
+              readOnly: true
+            - mountPath: /etc/traefik/traefik.yml
+              name: traefik-claim1
+              readOnly: true
+            - mountPath: /tls
+              name: traefik-claim2
+            - mountPath: /var/run/docker.sock
+              name: traefik-claim3
+              readOnly: true
+      hostname: traefik
+      restartPolicy: Always
+      volumes:
+        - name: traefik-claim0
+          persistentVolumeClaim:
+            claimName: traefik-claim0
+            readOnly: true
+        - name: traefik-claim1
+          persistentVolumeClaim:
+            claimName: traefik-claim1
+            readOnly: true
+        - name: traefik-claim2
+          persistentVolumeClaim:
+            claimName: traefik-claim2
+        - name: traefik-claim3
+          persistentVolumeClaim:
+            claimName: traefik-claim3
+            readOnly: true
+status: {}
