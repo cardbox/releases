@@ -194,6 +194,9 @@ services:
       traefik.enable: "true"
       traefik.http.routers.frontend.tls: "true"
       traefik.http.routers.frontend.rule: "Host(`${DOMAIN_NAME}`)"
+      traefik.http.services.frontend-service.loadbalancer.server.scheme: "h2c"
+      traefik.http.services.frontend-service.loadbalancer.server.port: "3000"
+      traefik.http.routers.frontend.service: "frontend-service"
     expose:
       - "3000"
     networks:
