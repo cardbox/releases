@@ -29,6 +29,7 @@ services:
     environment:
       CARDBOX_DATABASE__SSL_VALIDATE: "false"
       CARDBOX_SERVER__USE_SSL: ${CARDBOX_SERVER__USE_SSL}
+      CARDBOX_SERVER__USE_H1: "true"
     labels:
       traefik.http.routers.api-internal.tls.certresolver: "le"
 
