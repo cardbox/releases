@@ -205,3 +205,4 @@ services:
       IMAGE_URL: https://cardbox.local/images
       BACKEND_URL: http://cardbox-api-internal:9110
       PORT: 3000
+      STATUSPAGE_ID: ${STATUSPAGE_ID}
