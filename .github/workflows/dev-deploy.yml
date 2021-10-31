@@ -62,6 +62,7 @@ jobs:
           export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
           export CARDBOX_SERVER__USE_SSL="${{ env.CARDBOX_SERVER__USE_SSL }}"
           export RAZZLE_SESSION_TOKEN="${{ secrets.DEV_RAZZLE_SESSION_TOKEN }}"
+          export STATUSPAGE_ID="gk7395sfn3qd"
           docker-compose -f docker-compose.yaml -f dev.yaml pull
           docker-compose -f docker-compose.yaml -f dev.yaml build
           docker-compose -f docker-compose.yaml -f dev.yaml up -d --remove-orphans
