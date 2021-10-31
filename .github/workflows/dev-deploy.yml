@@ -25,7 +25,7 @@ jobs:
     env:
       DOMAIN_NAME: 'cardbox.sova.dev'
       CARDBOX_SERVER__USE_SSL: "false"
-      CARDBOX_ACCESSO__URL: 'https://accesso.sova.dev'
+      CARDBOX_ACCESSO__URL: 'https://auth.sova.dev'
       CARDBOX_ACCESSO__CLIENT_ID: '00000000-0000-4000-acce-000000009100'
       CARDBOX_ACCESSO__REDIRECT_BACK_URL: 'https://cardbox.sova.dev/accesso/done'
       CARDBOX_ACCESSO__CLIENT_SECRET: 'CardboxDev'
