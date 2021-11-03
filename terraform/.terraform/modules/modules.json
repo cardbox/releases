@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"common_vars","Source":"./vars","Dir":""},{"Key":"k8s_deploy","Source":"./modules/k8s-deployments","Dir":"modules/k8s-deployments"}]}

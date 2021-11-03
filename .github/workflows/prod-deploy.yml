@@ -11,29 +11,31 @@ on:
       - ".github/workflows/dev-deploy.yml"
       - "services/*"
   workflow_dispatch:
+    inputs:
+      images_tag:
+        description: Tag for all images in this release
+        required: true
+        default: 'latest'
 
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+  GKE_ZONE: ${{ secrets.GKE_ZONE }}
+  DEPLOYMENT_NAME: ${{ secrets.DEPLOYMENT_NAME }}
 
 jobs:
   deploy:
     # Restrict deploy to prod
     if: contains('["Drevoed","sergeysova"]', github.actor)
     name: Deploy ${{ github.event.client_payload.github.repository }}
-    runs-on: [prod]
-    env:
-      DOMAIN_NAME: 'cardbox.dev'
-      CARDBOX_ACCESSO__URL: 'https://accesso.app'
-      CARDBOX_ACCESSO__CLIENT_ID: '00000000-0000-4000-acce-000000009100'
-      CARDBOX_ACCESSO__REDIRECT_BACK_URL: 'https://cardbox.dev/accesso/done'
-      CARDBOX_ACCESSO__CLIENT_SECRET: 'CardboxDev'
-      CARDBOX_ACCESSO__SSL_VALIDATE: 'false'
-      DATABASE_HOST: 'database'
+    runs-on: [self-hosted]
     steps:
       - uses: chrnorm/deployment-action@releases/v1
         name: Create GitHub Deployment
         id: deployment
         with:
           token: '${{ github.token }}'
-          environment: development
+          environment: production
 
       - uses: sergeysova/deployment-status@releases/v1.1
         name: Deployment progress
@@ -43,17 +45,20 @@ jobs:
           deployment_id: ${{ steps.deployment.outputs.deployment_id }}
 
       - uses: actions/checkout@v2
+        name: Checkout
 
-      - name: Docker Compose
-        run: |
-          docker login --username ${{ secrets.DOCKER_HUB_LOGIN }} -p ${{ secrets.DOCKER_HUB_TOKEN }}
-          docker login ghcr.io --username ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          export POSTGRES_DB="${{ secrets.DEV_DB }}"
-          export POSTGRES_USER="${{ secrets.DEV_DB_USER }}"
-          export POSTGRES_PASSWORD="${{ secrets.DEV_DB_PASSWORD }}"
-          docker-compose -f docker-compose.yaml -f prod.yaml pull
-          docker-compose -f docker-compose.yaml -f prod.yaml build
-          docker-compose -f docker-compose.yaml -f prod.yaml up -d --remove-orphans
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - run: |-
+          gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE"
+
+      - name: Deploy
+        run: |-
+          kubectl apply -f deployment.yaml
+          kubectl rollout status -n cardbox
 
       - uses: sergeysova/deployment-status@releases/v1.1
         name: Deployment success
