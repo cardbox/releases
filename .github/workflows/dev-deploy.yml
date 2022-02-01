@@ -67,6 +67,9 @@ jobs:
           docker-compose -f docker-compose.yaml -f dev.yaml build
           docker-compose -f docker-compose.yaml -f dev.yaml up -d --remove-orphans
 
+      - name: Clean docker containers and volumes
+        run: docker system prune -a --volumes -f
+
       - uses: sergeysova/deployment-status@releases/v1.1
         name: Deployment success
         if: success()
